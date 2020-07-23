@@ -17,6 +17,9 @@ const (
 	defaultConfigSection = "settings"
 	// defaultTimeoutSecs is the default timeout used for requests to the wakatime api
 	defaultTimeoutSecs = 60
+	// defaultOfflineSync is the default maximum number of heartbeats from the
+	// offline queue, which will be synced upon sending heartbeats to the API.
+	defaultOfflineSync = "100"
 )
 
 // NewRootCMD creates a rootCmd, which represents the base command when called without any subcommands.
@@ -59,6 +62,8 @@ func setFlags(cmd *cobra.Command, v *viper.Viper) {
 		nil,
 		"Writes value to a config key, then exits. Expects two arguments, key and value.",
 	)
+	flags.Bool("disable-offline", false, "Disables offline time logging instead of queuing logged time.")
+	flags.Bool("disableoffline", false, "(deprecated) Disables offline time logging instead of queuing logged time.")
 	flags.String(
 		"entity",
 		"",
@@ -127,6 +132,15 @@ func setFlags(cmd *cobra.Command, v *viper.Viper) {
 		"",
 		"Override the bundled Python Requests CA certs file. By default, uses"+
 			"system ca certs.",
+	)
+	flags.String(
+		"sync-offline-activity",
+		defaultOfflineSync,
+		"Amount of offline activity to sync from your local ~/.wakatime.db sqlite3"+
+			" file to your WakaTime Dashboard before exiting. Can be \"none\" or"+
+			" a positive integer. Defaults to 100, meaning for every heartbeat sent"+
+			" while online, 100 offline heartbeats are synced. Can be used without"+
+			" --entity to only sync offline activity without generating new heartbeats.",
 	)
 	flags.Int(
 		"timeout",
