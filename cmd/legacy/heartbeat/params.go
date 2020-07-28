@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
@@ -27,19 +28,21 @@ var (
 
 // Params contains heartbeat command parameters.
 type Params struct {
-	APIKey     string
-	APIUrl     string
-	Category   heartbeat.Category
-	Entity     string
-	EntityType heartbeat.EntityType
-	Hostname   string
-	IsWrite    *bool
-	Plugin     string
-	Time       float64
-	Timeout    time.Duration
-	Filter     FilterParams
-	Network    NetworkParams
-	Sanitize   SanitizeParams
+	APIKey          string
+	APIUrl          string
+	Category        heartbeat.Category
+	Entity          string
+	EntityType      heartbeat.EntityType
+	Hostname        string
+	IsWrite         *bool
+	OfflineDisabled bool
+	OfflineSyncMax  int
+	Plugin          string
+	Time            float64
+	Timeout         time.Duration
+	Filter          FilterParams
+	Network         NetworkParams
+	Sanitize        SanitizeParams
 }
 
 // FilterParams contains heartbeat filtering related command parameters.
@@ -93,7 +96,7 @@ func LoadParams(v *viper.Viper) (Params, error) {
 	}
 
 	entity, ok := vipertools.FirstNonEmptyString(v, "entity", "file")
-	if !ok {
+	if !ok && !v.IsSet("sync-offline-activity") {
 		return Params{}, errors.New("failed to retrieve entity")
 	}
 
@@ -123,6 +126,30 @@ func LoadParams(v *viper.Viper) (Params, error) {
 		isWrite = heartbeat.Bool(b)
 	}
 
+	offlineDisabled := vipertools.FirstNonEmptyBool(v, "disableoffline", "disable-offline")
+	if b := v.GetBool("settings.offline"); v.IsSet("settings.offline") {
+		offlineDisabled = !b
+	}
+
+	var offlineSyncMax int
+
+	switch {
+	case !v.IsSet("sync-offline-activity"):
+		// use default
+		offlineSyncMax = v.GetInt("sync-offline-activity")
+	case v.GetString("sync-offline-activity") == "none":
+		break
+	default:
+		offlineSyncMax, err = strconv.Atoi(v.GetString("sync-offline-activity"))
+		if err != nil {
+			return Params{}, errors.New("argument --sync-offline-activity must be \"none\" or a positive integer number: %s")
+		}
+	}
+
+	if offlineSyncMax < 0 {
+		return Params{}, errors.New("argument --sync-offline-activity must be \"none\" or a positive integer number")
+	}
+
 	timeSecs := v.GetFloat64("time")
 	if timeSecs == 0 {
 		timeSecs = float64(time.Now().UnixNano()) / 1000000000
@@ -146,19 +173,21 @@ func LoadParams(v *viper.Viper) (Params, error) {
 	}
 
 	return Params{
-		APIKey:     apiKey,
-		APIUrl:     apiURL,
-		Category:   category,
-		Entity:     entity,
-		EntityType: entityType,
-		Hostname:   hostname,
-		IsWrite:    isWrite,
-		Plugin:     v.GetString("plugin"),
-		Time:       timeSecs,
-		Timeout:    timeout,
-		Network:    networkParams,
-		Sanitize:   sanitizeParams,
-		Filter:     loadFilterParams(v),
+		APIKey:          apiKey,
+		APIUrl:          apiURL,
+		Category:        category,
+		Entity:          entity,
+		EntityType:      entityType,
+		Hostname:        hostname,
+		IsWrite:         isWrite,
+		OfflineDisabled: offlineDisabled,
+		OfflineSyncMax:  offlineSyncMax,
+		Plugin:          v.GetString("plugin"),
+		Time:            timeSecs,
+		Timeout:         timeout,
+		Filter:          loadFilterParams(v),
+		Network:         networkParams,
+		Sanitize:        sanitizeParams,
 	}, nil
 }
 
