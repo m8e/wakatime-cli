@@ -31,10 +31,12 @@ type Params struct {
 	APIKey          string
 	APIUrl          string
 	Category        heartbeat.Category
+	CursorPosition  *int
 	Entity          string
 	EntityType      heartbeat.EntityType
 	Hostname        string
 	IsWrite         *bool
+	LineNumber      *int
 	OfflineDisabled bool
 	OfflineSyncMax  int
 	Plugin          string
@@ -95,6 +97,11 @@ func LoadParams(v *viper.Viper) (Params, error) {
 		category = parsed
 	}
 
+	var cursorPosition *int
+	if pos := v.GetInt("cursorpos"); v.IsSet("cursorpos") {
+		cursorPosition = heartbeat.Int(pos)
+	}
+
 	entity, ok := vipertools.FirstNonEmptyString(v, "entity", "file")
 	if !ok && !v.IsSet("sync-offline-activity") {
 		return Params{}, errors.New("failed to retrieve entity")
@@ -124,6 +131,11 @@ func LoadParams(v *viper.Viper) (Params, error) {
 	var isWrite *bool
 	if b := v.GetBool("write"); v.IsSet("write") {
 		isWrite = heartbeat.Bool(b)
+	}
+
+	var lineNumber *int
+	if num := v.GetInt("lineno"); v.IsSet("lineno") {
+		lineNumber = heartbeat.Int(num)
 	}
 
 	offlineDisabled := vipertools.FirstNonEmptyBool(v, "disableoffline", "disable-offline")
@@ -176,10 +188,12 @@ func LoadParams(v *viper.Viper) (Params, error) {
 		APIKey:          apiKey,
 		APIUrl:          apiURL,
 		Category:        category,
+		CursorPosition:  cursorPosition,
 		Entity:          entity,
 		EntityType:      entityType,
 		Hostname:        hostname,
 		IsWrite:         isWrite,
+		LineNumber:      lineNumber,
 		OfflineDisabled: offlineDisabled,
 		OfflineSyncMax:  offlineSyncMax,
 		Plugin:          v.GetString("plugin"),
